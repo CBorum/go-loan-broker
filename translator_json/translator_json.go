@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/cborum/go-loan-broker/bank"
 	"github.com/streadway/amqp"
 )
 
@@ -27,7 +28,7 @@ func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-func rpc() (res *LoanResponse, err error) {
+func rpc() (res *bank.LoanResponse, err error) {
 	conn, err := amqp.Dial("amqp://guest:guest@datdb.cphbusiness.dk:5672")
 	// conn, err := amqp.Dial("amqp://guest:guest@localhost:5672")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -50,73 +51,60 @@ func rpc() (res *LoanResponse, err error) {
 	failOnError(err, "Failed to declare an exchange")
 
 	q, err := ch.QueueDeclare(
-		"",    // name
-		false, // durable
-		true,  // delete when unused
-		true,  // exclusive
-		false, // noWait
-		nil,   // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-
-	err = ch.QueueBind(
-		q.Name,       // queue bind name
-		"",           // queue routing key
-		exchangeName, // exchange
-		false,
-		nil,
-	)
-	failOnError(err, "Failed to bind queue")
-
-	q2, err := ch.QueueDeclare(
 		"rpc_out", // name
 		false,     // durable
-		true,      // delete when unused
-		true,      // exclusive
+		false,     // delete when unused
+		false,     // exclusive
 		false,     // noWait
 		nil,       // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	err = ch.QueueBind(
-		q2.Name,      // queue bind name
-		"",           // queue routing key
-		exchangeName, // exchange
-		false,
-		nil,
-	)
-	failOnError(err, "Failed to bind queue")
+	// err = ch.QueueBind(
+	// 	q.Name,      // queue bind name
+	// 	"rpc_out",    // queue routing key
+	// 	exchangeName, // exchange
+	// 	false,
+	// 	nil,
+	// )
+	// failOnError(err, "Failed to bind queue")
 
 	msgs, err := ch.Consume(
-		"rpc_out", // queue
-		"",        // consumer
-		true,      // auto-ack
-		false,     // exclusive
-		false,     // no-local
-		false,     // no-wait
-		nil,       // args
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		true,   // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
 	)
 	failOnError(err, "Failed to register a consumer")
 
-	corrId := randomString(32)
-	lr := &LoanRequest{123412342, 650, 4234.54, 1}
+	corrID := randomString(32)
+	lr := &bank.LoanRequest{
+		Ssn:          123412342,
+		CreditScore:  650,
+		LoanAmount:   4234.54,
+		LoanDuration: 1,
+	}
 	body, err := json.Marshal(lr)
 
 	err = ch.Publish(
 		exchangeName, // exchange
-		"",           // routing key //rpc_queue
+		"",           // routing key
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
 			ContentType:   "text/json",
-			CorrelationId: corrId,
-			ReplyTo:       "rpc_out",
+			CorrelationId: corrID,
+			ReplyTo:       q.Name,
 			Body:          body,
 		})
 	failOnError(err, "Failed to publish a message")
 
 	for d := range msgs {
-		res = &LoanResponse{}
+		log.Println(string(d.Body))
+		res = &bank.LoanResponse{}
 		err = json.Unmarshal(d.Body, res)
 		if res.InterestRate != 0 {
 			log.Println(res)
@@ -124,6 +112,7 @@ func rpc() (res *LoanResponse, err error) {
 			break
 		}
 	}
+
 	return
 }
 
@@ -136,16 +125,4 @@ func main() {
 	failOnError(err, "Failed to handle RPC request")
 
 	log.Printf(" [.] Got %#v", res)
-}
-
-type LoanRequest struct {
-	Ssn          int     `xml:"ssn" json:"ssn"`
-	CreditScore  int     `xml:"creditScore" json:"creditScore"`
-	LoanAmount   float64 `xml:"loanAmount" json:"loanAmount"`
-	LoanDuration int     `xml:"loanDuration" json:"loanDuration"`
-}
-
-type LoanResponse struct {
-	InterestRate float64 `xml:"interestRate" json:"interestRate"`
-	Ssn          int     `xml:"ssn" json:"ssn"`
 }
