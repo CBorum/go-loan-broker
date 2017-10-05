@@ -93,7 +93,6 @@ func handleInMsg(body []byte, rpcQueue amqp.Queue, ch *amqp.Channel) (le *bankut
 	}
 
 	for d := range bankMsgs {
-		log.Println(string(d.Body))
 		if corrID == d.CorrelationId {
 			le = &bankutil.LoanResponse{}
 			err = xml.Unmarshal(d.Body, le)
@@ -110,7 +109,7 @@ func handleInMsg(body []byte, rpcQueue amqp.Queue, ch *amqp.Channel) (le *bankut
 
 func publishLoanResponse(le *bankutil.LoanResponse, ch *amqp.Channel) error {
 	if le == nil {
-		return errors.New("asdf")
+		return errors.New("nil LoanResponse")
 	}
 
 	jsonBody, err := json.Marshal(le)
@@ -118,50 +117,9 @@ func publishLoanResponse(le *bankutil.LoanResponse, ch *amqp.Channel) error {
 		return err
 	}
 
-	err = ch.Publish(
-		routeExchange,     // exchange
-		"cb_xml_bank_out", // routing key
-		false,             // mandatory
-		false,             // immediate
-		amqp.Publishing{
-			ContentType: "text/json",
-			Body:        jsonBody,
-		})
+	err = bankutil.Publish(ch, jsonBody, routeExchange, "cb_xml_bank_out")
 	return err
 }
-
-// func getQueue(ch *amqp.Channel, exchangeName string, queueName string) amqp.Queue {
-// 	err := ch.ExchangeDeclare(
-// 		exchangeName, // name
-// 		"direct",     // type
-// 		true,         // durable
-// 		false,        // auto-deleted
-// 		false,        // internal
-// 		false,        // no-wait
-// 		nil,          // arguments
-// 	)
-// 	bankutil.FailOnError(err, "Failed to declare an exchange")
-
-// 	q, err := ch.QueueDeclare(
-// 		queueName, // name
-// 		false,     // durable
-// 		false,     // delete when unused
-// 		false,     // exclusive
-// 		false,     // noWait
-// 		nil,       // arguments
-// 	)
-// 	bankutil.FailOnError(err, "Failed to declare a queue")
-
-// 	err = ch.QueueBind(
-// 		q.Name,       // queue bind name
-// 		queueName,    // queue routing key
-// 		exchangeName, // exchange
-// 		false,        // no wait
-// 		nil,          // table
-// 	)
-// 	bankutil.FailOnError(err, "Failed to bind queue")
-// 	return q
-// }
 
 func randomString(l int) string {
 	bytes := make([]byte, l)
