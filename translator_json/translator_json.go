@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net/http"
 
 	"github.com/cborum/go-loan-broker/bankutil"
 	"github.com/streadway/amqp"
@@ -132,6 +133,7 @@ func handleInMsg(body []byte, rpcQueue amqp.Queue, ch *amqp.Channel) (le *bankut
 	}
 
 	for d := range bankMsgs {
+		log.Println(http.DetectContentType(d.Body))
 		le = &bankutil.LoanResponse{}
 		err = json.Unmarshal(d.Body, le)
 		if err != nil {

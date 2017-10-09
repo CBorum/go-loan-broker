@@ -2,6 +2,7 @@ package bankutil
 
 import (
 	"log"
+	"sync"
 
 	"github.com/streadway/amqp"
 )
@@ -18,6 +19,13 @@ type LoanRequest struct {
 type LoanResponse struct {
 	InterestRate float64 `xml:"interestRate" json:"interestRate"`
 	Ssn          int     `xml:"ssn" json:"ssn"`
+	Bank         string  `xml:"bank,omitempty" json:"bank,omitempty"`
+}
+
+// BankResponses ...
+type BankResponses struct {
+	sync.RWMutex
+	Responses map[int][]*LoanResponse `json:"responses"`
 }
 
 // Publish ...
@@ -42,8 +50,8 @@ func PublishWithReply(ch *amqp.Channel, body []byte, exchangeName string, route 
 		false,        // immediate
 		amqp.Publishing{
 			// ContentType: "text/json",
-			ReplyTo:     replyQueueName,
-			Body:        body,
+			ReplyTo: replyQueueName,
+			Body:    body,
 		})
 }
 

@@ -48,6 +48,7 @@ func TestJsonInput(t *testing.T) {
 
 	select {
 	case m := <-msgs:
+		log.Println(string(m.Body))
 		le := &bankutil.LoanResponse{}
 		err := json.Unmarshal(m.Body, le)
 		if err != nil {

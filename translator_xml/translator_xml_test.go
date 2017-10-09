@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 	"testing"
 	"time"
 
@@ -37,6 +38,8 @@ func TestJsonInput(t *testing.T) {
 
 	select {
 	case m := <-msgs:
+		log.Println(m.ContentType)
+		log.Println(http.DetectContentType(m.Body))
 		le := &bankutil.LoanResponse{}
 		err := json.Unmarshal(m.Body, le)
 		if err != nil {
