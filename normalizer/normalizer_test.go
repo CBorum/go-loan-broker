@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"testing"
 	"time"
 
@@ -9,8 +10,12 @@ import (
 	"github.com/streadway/amqp"
 )
 
+const rabbitAddress = "amqp://guest:guest@localhost:5672/"
+
+// const rabbitAddress = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
+
 func TestJsonInput(t *testing.T) {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(rabbitAddress)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -32,11 +37,56 @@ func TestJsonInput(t *testing.T) {
 	body4, _ := json.Marshal(lr4)
 	body5, _ := json.Marshal(lr5)
 
+	bankutil.Publish(ch, body, "", "cb_xml_bank_out")
+	time.Sleep(500 * time.Millisecond)
+	bankutil.Publish(ch, body2, "", "cb_xml_bank_out")
+	time.Sleep(500 * time.Millisecond)
+	bankutil.Publish(ch, body3, "", "cb_xml_bank_out")
+	bankutil.Publish(ch, body4, "", "cb_xml_bank_out")
+	bankutil.Publish(ch, body5, "", "cb_xml_bank_out")
+}
+func TestXMLInput(t *testing.T) {
+	conn, err := amqp.Dial(rabbitAddress)
+	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	bankutil.FailOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	lr := bankutil.LoanResponse{
+		InterestRate: 4.5,
+		Ssn:          123412345,
+	}
+	lr2 := bankutil.LoanResponse{3.2, 223412345, "bank1"}
+	lr3 := bankutil.LoanResponse{5.5, 123412345, "bank2"}
+	lr4 := bankutil.LoanResponse{5.5, 123412345, "bank3"}
+	lr5 := bankutil.LoanResponse{4.5, 123412345, "bank4"}
+	body, _ := xml.Marshal(lr)
+	body2, _ := xml.Marshal(lr2)
+	body3, _ := xml.Marshal(lr3)
+	body4, _ := xml.Marshal(lr4)
+	body5, _ := xml.Marshal(lr5)
+
 	bankutil.Publish(ch, body, "RouteExchange", "cb_xml_bank_out")
 	time.Sleep(500 * time.Millisecond)
-	bankutil.Publish(ch, body2, "RouteExchange", "cb_xml_bank_out")
+	bankutil.Publish(ch, body2, "", "cb_xml_bank_out")
 	time.Sleep(500 * time.Millisecond)
-	bankutil.Publish(ch, body3, "RouteExchange", "cb_xml_bank_out")
-	bankutil.Publish(ch, body4, "RouteExchange", "cb_xml_bank_out")
-	bankutil.Publish(ch, body5, "RouteExchange", "cb_xml_bank_out")
+	bankutil.Publish(ch, body3, "", "cb_xml_bank_out")
+	bankutil.Publish(ch, body4, "", "cb_xml_bank_out")
+	bankutil.Publish(ch, body5, "", "cb_xml_bank_out")
+}
+
+func TestBadInput(t *testing.T) {
+	conn, err := amqp.Dial(rabbitAddress)
+	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	bankutil.FailOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	body := []byte("kuk")
+
+	bankutil.Publish(ch, body, "", "cb_xml_bank_out")
 }
