@@ -10,11 +10,6 @@ import (
 	"github.com/streadway/amqp"
 )
 
-var (
-	responseQueues = [...]string{"cb_xml_bank_out"}
-	// responseQueues = [...]string{"cb_xml_bank_out", "ckkm-test-queue"}
-)
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
 	quit := make(chan bool)
@@ -22,22 +17,30 @@ func main() {
 	// conn, err := amqp.Dial("amqp://guest:guest@datdb.cphbusiness.dk:5672")
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
+	startNormalizer(conn, quit)
+}
+
+func startNormalizer(conn *amqp.Connection, quit chan bool) {
+	responseQueues := make(map[string]string)
+	responseQueues["cb_xml_bank_out"] = "Borum Bank"
+	responseQueues["ckkm-test-queue"] = "Krissen Bank"
+	responseQueues["lb4json-cph-out"] = "Tine Bank" //example
 
 	ch, err := conn.Channel()
 	bankutil.FailOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	for _, rq := range responseQueues {
-		_, err = bankutil.StdQueueDeclare(ch, rq)
+	for qName, bName := range responseQueues {
+		_, err = bankutil.StdQueueDeclare(ch, qName)
 		bankutil.FailOnError(err, "Failed to declare queue")
-		go startQueueConsumer(ch, rq)
+		go startQueueConsumer(ch, qName, bName)
 	}
 
 	log.Println("Requesting...")
 	<-quit
 }
 
-func startQueueConsumer(ch *amqp.Channel, queueName string) {
+func startQueueConsumer(ch *amqp.Channel, queueName string, bankname string) {
 	log.Println("Consume", queueName)
 	msgs, err := ch.Consume(queueName, "", true, false, false, false, nil)
 	bankutil.FailOnError(err, "Consume fail")
@@ -50,7 +53,7 @@ func startQueueConsumer(ch *amqp.Channel, queueName string) {
 				log.Println(err)
 				return
 			}
-			//set bank name
+			le.Bank = bankname
 
 			jsonBody, err := json.Marshal(le)
 			if err != nil {
