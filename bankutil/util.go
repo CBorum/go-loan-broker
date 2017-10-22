@@ -9,8 +9,8 @@ import (
 
 const (
 	AggregatorName = "ckkm-aggregator"
-	RabbitURL      = "amqp://guest:guest@localhost:5672"
-	// RabbitURL      = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
+	// RabbitURL      = "amqp://guest:guest@localhost:5672"
+	RabbitURL = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
 )
 
 // LoanRequest ...

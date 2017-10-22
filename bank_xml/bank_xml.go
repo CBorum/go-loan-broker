@@ -23,7 +23,7 @@ func main() {
 	err = bankutil.StdExchangeDeclare(ch, exchangeName)
 	bankutil.FailOnError(err, "Failed to declare an exchange")
 
-	q, err := bankutil.StdQueueDeclareWithBind(ch, "rpc_queue", exchangeName)
+	q, err := bankutil.StdQueueDeclareWithBind(ch, "ckkm-rpc-queue", exchangeName)
 	bankutil.FailOnError(err, "Failed to declare a queue")
 
 	msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)

@@ -62,10 +62,10 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 	xmlBody, err := xml.Marshal(lr)
 
 	return ch.Publish(
-		bankExchange, // exchange
-		"rpc_queue",  // routing key
-		false,        // mandatory
-		false,        // immediate
+		bankExchange,     // exchange
+		"ckkm-rpc-queue", // routing key
+		false,            // mandatory
+		false,            // immediate
 		amqp.Publishing{
 			ContentType:   "text/xml",
 			CorrelationId: corrID,
