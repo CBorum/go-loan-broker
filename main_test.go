@@ -1,8 +1,7 @@
-package main
+package test
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"log"
 	"testing"
 	"time"
@@ -33,21 +32,20 @@ func TestJsonInput(t *testing.T) {
 		t.FailNow()
 	}
 
-	bankutil.Publish(ch, body, "RouteExchange", "cb_xml_bank_in")
+	bankutil.Publish(ch, body, "", "ckkm-xml-in")
 
-	msgs, err := ch.Consume("cb_xml_bank_out", "", true, false, false, false, nil)
+	msgs, err := ch.Consume("ckkm-result-queue", "", true, false, false, false, nil)
 	bankutil.FailOnError(err, "Consume fail")
 
 	select {
 	case m := <-msgs:
 		le := &bankutil.LoanResponse{}
-		err := xml.Unmarshal(m.Body, le)
+		err := json.Unmarshal(m.Body, le)
 		assert.Nil(t, err)
 		assert.NotEqual(t, 0, le.InterestRate)
 		assert.Equal(t, le.Ssn, lr.Ssn)
 		log.Println(le)
-	case <-time.After(time.Duration(1 * time.Second)):
-		log.Println("timeout")
+	case <-time.After(time.Duration(3 * time.Second)):
 		t.FailNow()
 	}
 }

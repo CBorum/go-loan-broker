@@ -13,8 +13,7 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
 	quit := make(chan bool)
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	// conn, err := amqp.Dial("amqp://guest:guest@datdb.cphbusiness.dk:5672")
+	conn, err := amqp.Dial(bankutil.RabbitURL)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 	startNormalizer(conn, quit)
@@ -22,9 +21,8 @@ func main() {
 
 func startNormalizer(conn *amqp.Connection, quit chan bool) {
 	responseQueues := make(map[string]string)
-	responseQueues["cb_xml_bank_out"] = "Borum Bank"
-	responseQueues["ckkm-test-queue"] = "Krissen Bank"
-	responseQueues["lb4json-cph-out"] = "Tine Bank" //example
+	responseQueues["ckkm-xml-out"] = "BorumBorumBank"
+	responseQueues["ckkm-test-queue"] = "BögBank"
 
 	ch, err := conn.Channel()
 	bankutil.FailOnError(err, "Failed to open a channel")
@@ -61,7 +59,7 @@ func startQueueConsumer(ch *amqp.Channel, queueName string, bankname string) {
 				return
 			}
 			log.Println("sendt", string(jsonBody))
-			err = bankutil.Publish(ch, jsonBody, "", "aggregator")
+			err = bankutil.Publish(ch, jsonBody, "", bankutil.AggregatorName)
 			if err != nil {
 				log.Println(err)
 			}

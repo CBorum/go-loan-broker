@@ -12,14 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	rabbitAddress = "amqp://guest:guest@localhost:5672/"
-	// rabbitAddress = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
-)
-
 func TestJsonInput(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
-	conn, err := amqp.Dial(rabbitAddress)
+	conn, err := amqp.Dial(bankutil.RabbitURL)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -28,6 +23,9 @@ func TestJsonInput(t *testing.T) {
 	ch, err := conn.Channel()
 	bankutil.FailOnError(err, "Failed to open a channel")
 	defer ch.Close()
+
+	_, err = bankutil.StdQueueDeclare(ch, "cb_xml_bank_out")
+	bankutil.FailOnError(err, "Failed to declare queue")
 
 	lr := bankutil.LoanResponse{
 		InterestRate: 4.5,
@@ -42,7 +40,6 @@ func TestJsonInput(t *testing.T) {
 	body3, _ := json.Marshal(lr3)
 	body4, _ := json.Marshal(lr4)
 	body5, _ := json.Marshal(lr5)
-
 	bankutil.Publish(ch, body, "", "cb_xml_bank_out")
 	bankutil.Publish(ch, body2, "", "cb_xml_bank_out")
 	bankutil.Publish(ch, body3, "", "cb_xml_bank_out")
@@ -50,10 +47,22 @@ func TestJsonInput(t *testing.T) {
 	bankutil.Publish(ch, body5, "", "cb_xml_bank_out")
 	time.Sleep(500 * time.Millisecond)
 
-	msgs, err := ch.Consume("aggregator", "", true, false, false, false, nil)
-	m := <-msgs
-	log.Println(string(m.Body))
-	//TODO
+	msgs, err := ch.Consume(bankutil.AggregatorName, "", true, false, false, false, nil)
+	assert.Equal(t, nil, err)
+
+	for i := 0; i < 5; i++ {
+		select {
+		case m := <-msgs:
+			le := &bankutil.LoanResponse{}
+			err := json.Unmarshal(m.Body, le)
+			assert.Nil(t, err)
+			assert.NotEqual(t, 0, le.InterestRate)
+			assert.NotEqual(t, "", le.Ssn)
+			assert.NotEqual(t, "", le.Bank)
+		case <-time.After(time.Second * 3):
+			t.FailNow()
+		}
+	}
 }
 
 func TestXMLInput(t *testing.T) {
@@ -128,7 +137,7 @@ func TestMultiQueue(t *testing.T) {
 	bankutil.Publish(ch, body, "", "cb_xml_bank_out")
 	time.Sleep(500 * time.Millisecond)
 	bankutil.Publish(ch, body2, "", "ckkm-test-queue")
-	msgs, err := ch.Consume("aggregator", "", true, false, false, false, nil)
+	msgs, err := ch.Consume(bankutil.AggregatorName, "", true, false, false, false, nil)
 	m := <-msgs
 	m2 := <-msgs
 	assert.Equal(t, `{"interestRate":4.5,"ssn":123412345,"bank":"Borum Bank"}`, string(m.Body))

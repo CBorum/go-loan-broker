@@ -12,7 +12,7 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(RabbitURL)
 	FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 	quit := make(chan bool)
@@ -29,11 +29,13 @@ func startAggregator(conn *amqp.Connection, quit chan bool) {
 	}
 	rl := make(map[int]int)
 
-	_, err = StdQueueDeclareWithBind(ch, "route_meta", "LB4.RouteExchange")
-	_, err = StdQueueDeclareWithBind(ch, "result_queue", "LB4.RouteExchange")
-
-	q, err := StdQueueDeclare(ch, "aggregator")
+	_, err = StdQueueDeclare(ch, "ckkm-route-meta")
 	FailOnError(err, "Failed to declare queue")
+	_, err = StdQueueDeclare(ch, "ckkm-result-queue")
+	FailOnError(err, "Failed to declare queue")
+	q, err := StdQueueDeclare(ch, AggregatorName)
+	FailOnError(err, "Failed to declare queue")
+
 	go startQueueConsumer(ch, q.Name, br, rl)
 	go startRouteListener(ch, br, rl)
 	log.Println("Requesting...")
@@ -42,9 +44,9 @@ func startAggregator(conn *amqp.Connection, quit chan bool) {
 }
 
 func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
-	msgs, err := ch.Consume("route_meta", "", true, false, false, false, nil)
+	msgs, err := ch.Consume("ckkm-route-meta", "", true, false, false, false, nil)
 	FailOnError(err, "Comsume fail")
-	log.Println("Consume", "route_meta")
+	log.Println("Consume", "ckkm-route-meta")
 	ra := resultAmount{}
 	for m := range msgs {
 		err := json.Unmarshal(m.Body, ra)
@@ -52,7 +54,7 @@ func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
 			log.Println(err)
 		} else {
 			rl[ra.Ssn] = ra.Amount
-			time.AfterFunc(2500*time.Millisecond, publishResponseFunc(ch, br, rl, ra.Ssn))
+			time.AfterFunc(2200*time.Millisecond, publishResponseFunc(ch, br, rl, ra.Ssn))
 		}
 	}
 }
@@ -118,7 +120,7 @@ func publichResponse(ch *amqp.Channel, br *BankResponses, rl map[int]int, ssn in
 			log.Println(err)
 		} else {
 			log.Println("sendt", string(body))
-			Publish(ch, body, "LB4.RouteExchange", "result_queue")
+			Publish(ch, body, "", "ckkm-result-queue")
 		}
 	}
 	delete(rl, ssn)

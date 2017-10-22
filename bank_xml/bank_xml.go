@@ -11,7 +11,7 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(bankutil.RabbitURL)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -43,13 +43,13 @@ func main() {
 		}
 		body, err := xml.Marshal(le)
 		bankutil.FailOnError(err, "Failed to marshal loan response")
-		log.Println("returning", string(body))
+		log.Printf("reply to %s - %s", d.ReplyTo, string(body))
 
 		err = ch.Publish(
-			exchangeName, // exchange
-			d.ReplyTo,    // routing key
-			false,        // mandatory
-			false,        // immediate
+			"",        // exchange
+			d.ReplyTo, // routing key
+			false,     // mandatory
+			false,     // immediate
 			amqp.Publishing{
 				ContentType:   "text/xml",
 				CorrelationId: d.CorrelationId,

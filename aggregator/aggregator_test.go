@@ -11,13 +11,9 @@ import (
 	"github.com/streadway/amqp"
 )
 
-const rabbitAddress = "amqp://guest:guest@localhost:5672/"
-
-// const rabbitAddress = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
-
 func TestJsonInput(t *testing.T) {
 	quit := make(chan bool)
-	conn, err := amqp.Dial(rabbitAddress)
+	conn, err := amqp.Dial(RabbitURL)
 	FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 	go startAggregator(conn, quit)
@@ -26,7 +22,10 @@ func TestJsonInput(t *testing.T) {
 	FailOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	lr := LoanResponse{
+	q, err := StdQueueDeclare(ch, AggregatorName)
+	FailOnError(err, "Failed to declare queue")
+
+	lr := &LoanResponse{
 		InterestRate: 4.5,
 		Ssn:          123412345,
 	}
@@ -40,15 +39,15 @@ func TestJsonInput(t *testing.T) {
 	body4, _ := json.Marshal(lr4)
 	body5, _ := json.Marshal(lr5)
 
-	Publish(ch, body, "", "aggregator")
+	Publish(ch, body, "", q.Name)
 	time.Sleep(500 * time.Millisecond)
-	Publish(ch, body2, "", "aggregator")
+	Publish(ch, body2, "", q.Name)
 	time.Sleep(500 * time.Millisecond)
-	Publish(ch, body3, "", "aggregator")
-	Publish(ch, body4, "", "aggregator")
-	Publish(ch, body5, "", "aggregator")
+	Publish(ch, body3, "", q.Name)
+	Publish(ch, body4, "", q.Name)
+	Publish(ch, body5, "", q.Name)
 
-	msgs, err := ch.Consume("result_queue", "", true, false, false, false, nil)
+	msgs, err := ch.Consume("ckkm-result-queue", "", true, false, false, false, nil)
 	if err != nil {
 		t.FailNow()
 	}

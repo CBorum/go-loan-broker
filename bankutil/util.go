@@ -7,6 +7,12 @@ import (
 	"github.com/streadway/amqp"
 )
 
+const (
+	AggregatorName = "ckkm-aggregator"
+	RabbitURL      = "amqp://guest:guest@localhost:5672"
+	// RabbitURL      = "amqp://guest:guest@datdb.cphbusiness.dk:5672"
+)
+
 // LoanRequest ...
 type LoanRequest struct {
 	Ssn          int     `xml:"ssn" json:"ssn"`

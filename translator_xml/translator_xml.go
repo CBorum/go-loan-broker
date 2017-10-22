@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"log"
 	"math/rand"
 	"time"
@@ -13,8 +12,9 @@ import (
 )
 
 const (
-	bankExchange  = "BigMoneyBankingXML"
-	routeExchange = "RouteExchange"
+	bankExchange = "BigMoneyBankingXML"
+	bankIn       = "ckkm-xml-in"
+	bankOut      = "ckkm-xml-out"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	log.Println(" [x] Requesting")
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(bankutil.RabbitURL)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -33,16 +33,10 @@ func main() {
 	err = bankutil.StdExchangeDeclare(ch, bankExchange)
 	bankutil.FailOnError(err, "Failed to declare exchange")
 
-	err = bankutil.StdExchangeDeclare(ch, routeExchange)
-	bankutil.FailOnError(err, "Failed to declare exchange")
-
-	rpcQueue, err := bankutil.StdQueueDeclareWithBind(ch, "rpc_in", bankExchange)
+	routeQueue, err := bankutil.StdQueueDeclare(ch, bankIn)
 	bankutil.FailOnError(err, "Failed to declare queue")
 
-	routeQueue, err := bankutil.StdQueueDeclareWithBind(ch, "cb_xml_bank_in", routeExchange)
-	bankutil.FailOnError(err, "Failed to declare queue")
-
-	_, err = bankutil.StdQueueDeclareWithBind(ch, "cb_xml_bank_out", routeExchange)
+	replyQueue, err := bankutil.StdQueueDeclare(ch, bankOut)
 	bankutil.FailOnError(err, "Failed to declare queue")
 
 	inMsgs, err := ch.Consume(routeQueue.Name, "", true, false, false, false, nil)
@@ -50,29 +44,24 @@ func main() {
 
 	for m := range inMsgs {
 		log.Println(string(m.Body))
-		le, err := handleInMsg(m.Body, rpcQueue, ch)
-		if err != nil {
-			log.Println(err)
-		}
-		log.Println(le)
-		err = publishLoanResponse(le, ch)
+		err = handleInMsg(m.Body, replyQueue, ch)
 		if err != nil {
 			log.Println(err)
 		}
 	}
 }
 
-func handleInMsg(body []byte, rpcQueue amqp.Queue, ch *amqp.Channel) (le *bankutil.LoanResponse, err error) {
+func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 	lr := &bankutil.LoanRequest{}
-	err = json.Unmarshal(body, lr)
+	err := json.Unmarshal(body, lr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	corrID := randomString(32)
 	xmlBody, err := xml.Marshal(lr)
 
-	err = ch.Publish(
+	return ch.Publish(
 		bankExchange, // exchange
 		"rpc_queue",  // routing key
 		false,        // mandatory
@@ -80,45 +69,9 @@ func handleInMsg(body []byte, rpcQueue amqp.Queue, ch *amqp.Channel) (le *bankut
 		amqp.Publishing{
 			ContentType:   "text/xml",
 			CorrelationId: corrID,
-			ReplyTo:       rpcQueue.Name, //TODO change this to the queue normalizer will listen to
+			ReplyTo:       replyQueue.Name, //TODO change this to the queue normalizer will listen to
 			Body:          xmlBody,
 		})
-	if err != nil {
-		return nil, err
-	}
-
-	bankMsgs, err := ch.Consume(rpcQueue.Name, "abc", true, false, false, false, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	for d := range bankMsgs {
-		if corrID == d.CorrelationId {
-			le = &bankutil.LoanResponse{}
-			err = xml.Unmarshal(d.Body, le)
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
-	}
-	ch.Cancel("abc", false)
-
-	return le, err
-}
-
-func publishLoanResponse(le *bankutil.LoanResponse, ch *amqp.Channel) error {
-	if le == nil {
-		return errors.New("nil LoanResponse")
-	}
-
-	jsonBody, err := json.Marshal(le)
-	if err != nil {
-		return err
-	}
-
-	err = bankutil.Publish(ch, jsonBody, routeExchange, "cb_xml_bank_out")
-	return err
 }
 
 func randomString(l int) string {
