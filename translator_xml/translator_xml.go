@@ -69,7 +69,7 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 		amqp.Publishing{
 			ContentType:   "text/xml",
 			CorrelationId: corrID,
-			ReplyTo:       replyQueue.Name, //TODO change this to the queue normalizer will listen to
+			ReplyTo:       replyQueue.Name,
 			Body:          xmlBody,
 		})
 }

@@ -8,11 +8,12 @@ import (
 
 	"github.com/cborum/go-loan-broker/bankutil"
 	"github.com/streadway/amqp"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestJsonInput(t *testing.T) {
-	// conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	conn, err := amqp.Dial("amqp://guest:guest@datdb.cphbusiness.dk")
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
+	conn, err := amqp.Dial(bankutil.RabbitURL)
 	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -31,19 +32,9 @@ func TestJsonInput(t *testing.T) {
 		t.FailNow()
 	}
 
-	exchangeName := "LB4.RouteExchange"
-	err = bankutil.StdExchangeDeclare(ch, exchangeName)
-	bankutil.FailOnError(err, "Failed to declare exchange")
+	bankutil.Publish(ch, body, "", "ckkm-cph-json")
 
-	_, err = bankutil.StdQueueDeclareWithBind(ch, "json_bank_in", exchangeName)
-	bankutil.FailOnError(err, "Failed to declare queue")
-
-	_, err = bankutil.StdQueueDeclareWithBind(ch, "json_bank_out", exchangeName)
-	bankutil.FailOnError(err, "Failed to declare queue")
-
-	bankutil.Publish(ch, body, exchangeName, "json_bank_in")
-
-	msgs, err := ch.Consume("json_bank_out", "", true, false, false, false, nil)
+	msgs, err := ch.Consume("ckkm-cph-json-out", "", true, false, false, false, nil)
 	bankutil.FailOnError(err, "Consume fail")
 
 	select {
@@ -51,16 +42,11 @@ func TestJsonInput(t *testing.T) {
 		log.Println(string(m.Body))
 		le := &bankutil.LoanResponse{}
 		err := json.Unmarshal(m.Body, le)
-		if err != nil {
-			log.Println(err)
-			t.FailNow()
-		}
-		if le.InterestRate == 0 || le.Ssn != lr.Ssn {
-			log.Println(le.InterestRate, le.Ssn)
-			t.FailNow()
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, 0, le.InterestRate)
+		assert.Equal(t, le.Ssn, lr.Ssn)
 		log.Println(le)
-	case <-time.After(time.Duration(1 * time.Second)):
+	case <-time.After(1 * time.Second):
 		log.Println("timeout")
 		t.FailNow()
 	}
