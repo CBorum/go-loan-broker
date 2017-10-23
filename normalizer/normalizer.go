@@ -30,8 +30,8 @@ func startNormalizer(conn *amqp.Connection, quit chan bool) {
 	defer ch.Close()
 
 	for qName, bName := range responseQueues {
-		_, err = bankutil.StdQueueDeclare(ch, qName)
-		bankutil.FailOnError(err, "Failed to declare queue")
+		// _, err = bankutil.StdQueueDeclare(ch, qName)
+		// bankutil.FailOnError(err, "Failed to declare queue")
 		go startQueueConsumer(ch, qName, bName)
 	}
 
