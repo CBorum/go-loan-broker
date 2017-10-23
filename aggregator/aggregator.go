@@ -47,8 +47,9 @@ func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
 	msgs, err := ch.Consume("ckkm-route-meta", "", true, false, false, false, nil)
 	FailOnError(err, "Comsume fail")
 	log.Println("Consume", "ckkm-route-meta")
-	ra := resultAmount{}
+	ra := &resultAmount{}
 	for m := range msgs {
+		log.Println(string(m.Body))
 		err := json.Unmarshal(m.Body, ra)
 		if err != nil {
 			log.Println(err)

@@ -54,8 +54,10 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 		return err
 	}
 
-	corrID := randomString(32)
 	jsonBody, err := json.Marshal(lr)
+	if err != nil {
+		return err
+	}
 
 	return ch.Publish(
 		bankExchange, // exchange
@@ -63,30 +65,8 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
-			ContentType:   "text/json",
-			CorrelationId: corrID,
-			ReplyTo:       replyQueue.Name,
-			Body:          jsonBody,
+			ContentType: "text/json",
+			ReplyTo:     replyQueue.Name,
+			Body:        jsonBody,
 		})
 }
-
-func randomString(l int) string {
-	bytes := make([]byte, l)
-	for i := 0; i < l; i++ {
-		bytes[i] = byte(randInt(65, 90))
-	}
-	return string(bytes)
-}
-
-func randInt(min int, max int) int {
-	return min + rand.Intn(max-min)
-}
-
-/*
-{
-	"ssn": "1234123412",
-	"creditScore": 650,
-	"loanAmount": 4234.54,
-	"loanDuration": "1973-09-15 01:00:00.0 CET"
-}
-*/

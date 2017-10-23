@@ -60,6 +60,9 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 
 	corrID := randomString(32)
 	xmlBody, err := xml.Marshal(lr)
+	if err != nil {
+		return err
+	}
 
 	return ch.Publish(
 		bankExchange,     // exchange
@@ -85,12 +88,3 @@ func randomString(l int) string {
 func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
-
-/*
-{
-	"ssn": "1234123412",
-	"creditScore": 650,
-	"loanAmount": 4234.54,
-	"loanDuration": "1973-09-15 01:00:00.0 CET"
-}
-*/

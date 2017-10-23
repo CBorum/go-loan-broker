@@ -21,8 +21,8 @@ func main() {
 
 func startNormalizer(conn *amqp.Connection, quit chan bool) {
 	responseQueues := make(map[string]string)
-	responseQueues["ckkm-xml-out"] = "BorumBorumBank"
-	responseQueues["ckkm-test-queue"] = "BögBank"
+	responseQueues["ckkm-xml-out"] = "BorumBorum Bank"
+	responseQueues["ckkm-PremiumBank-response"] = "Premium Bank"
 	responseQueues["ckkm-cph-json-out"] = "cphbusiness.BankJSON"
 
 	ch, err := conn.Channel()
