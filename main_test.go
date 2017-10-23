@@ -47,7 +47,7 @@ func TestJsonInput(t *testing.T) {
 		err := json.Unmarshal(m.Body, le)
 		assert.Nil(t, err)
 		assert.NotEqual(t, 0, le.InterestRate)
-		assert.Equal(t, le.Ssn, lr.Ssn)
+		assert.Equal(t, lr.Ssn, le.Ssn)
 		log.Println(le)
 	case <-time.After(time.Duration(3 * time.Second)):
 		t.FailNow()
@@ -98,7 +98,7 @@ func TestJsonInputWithRouteMeta(t *testing.T) {
 		err := json.Unmarshal(m.Body, le)
 		assert.Nil(t, err)
 		assert.NotEqual(t, 0, le.InterestRate)
-		assert.Equal(t, le.Ssn, lr.Ssn)
+		assert.Equal(t, lr.Ssn, le.Ssn)
 		log.Println(le)
 	case <-time.After(time.Duration(3 * time.Second)):
 		t.FailNow()

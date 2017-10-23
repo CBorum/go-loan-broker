@@ -82,7 +82,11 @@ func parseLoanResponse(body []byte) (le *bankutil.LoanResponse, err error) {
 			}
 			le.InterestRate = cphle.InterestRate
 			ssn := strconv.Itoa(cphle.Ssn)
-			le.Ssn = ssn[:5] + "-" + ssn[5:]
+			if len(ssn) < 5 {
+				err = errors.New("Short ssn error")
+				return
+			}
+			le.Ssn = ssn[:len(ssn)-4] + "-" + ssn[len(ssn)-4:]
 		}
 	}
 	if le.InterestRate == 0 || le.Ssn == "" {

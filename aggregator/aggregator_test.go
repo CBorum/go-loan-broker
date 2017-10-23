@@ -12,6 +12,7 @@ import (
 )
 
 func TestJsonInput(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
 	quit := make(chan bool)
 	conn, err := amqp.Dial(RabbitURL)
 	FailOnError(err, "Failed to connect to RabbitMQ")
@@ -27,12 +28,12 @@ func TestJsonInput(t *testing.T) {
 
 	lr := &LoanResponse{
 		InterestRate: 4.5,
-		Ssn:          123412345,
+		Ssn:          "123412345",
 	}
-	lr2 := &LoanResponse{3.2, 123412345, "bank1"}
-	lr3 := &LoanResponse{7.5, 123412345, "bank2"}
-	lr4 := &LoanResponse{5.4, 123412345, "bank3"}
-	lr5 := &LoanResponse{4.3, 123412345, "bank4"}
+	lr2 := &LoanResponse{3.2, "123412345", "bank1"}
+	lr3 := &LoanResponse{7.5, "123412345", "bank2"}
+	lr4 := &LoanResponse{5.4, "123412345", "bank3"}
+	lr5 := &LoanResponse{4.3, "123412345", "bank4"}
 	body, _ := json.Marshal(lr)
 	body2, _ := json.Marshal(lr2)
 	body3, _ := json.Marshal(lr3)
