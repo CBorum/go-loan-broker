@@ -10,6 +10,10 @@ import (
 	"github.com/streadway/amqp"
 )
 
+var (
+	timers map[int]*time.Timer
+)
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
 	conn, err := amqp.Dial(RabbitURL)
@@ -28,6 +32,7 @@ func startAggregator(conn *amqp.Connection, quit chan bool) {
 		Responses: make(map[int][]*LoanResponse),
 	}
 	rl := make(map[int]int)
+	timers = make(map[int]*time.Timer)
 
 	_, err = StdQueueDeclare(ch, "ckkm-route-meta")
 	FailOnError(err, "Failed to declare queue")
@@ -55,7 +60,6 @@ func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
 			log.Println(err)
 		} else {
 			rl[ra.Ssn] = ra.Amount
-			time.AfterFunc(2200*time.Millisecond, publishResponseFunc(ch, br, rl, ra.Ssn))
 		}
 	}
 }
@@ -79,8 +83,11 @@ func startQueueConsumer(ch *amqp.Channel, queueName string, br *BankResponses, r
 				br.Responses[le.Ssn] = append(responses, le)
 			} else {
 				br.Responses[le.Ssn] = append(responses, le)
-				time.AfterFunc(2000*time.Millisecond, publishResponseFunc(ch, br, rl, le.Ssn))
+				timers[le.Ssn] = time.AfterFunc(2000*time.Millisecond, publishResponseFunc(ch, br, rl, le.Ssn))
+				log.Println(timers)
 			}
+			br.Unlock()
+			log.Println(br.Responses)
 
 			// If amount of result match the requests sendt
 			if val, ok := rl[le.Ssn]; ok {
@@ -89,9 +96,6 @@ func startQueueConsumer(ch *amqp.Channel, queueName string, br *BankResponses, r
 					publichResponse(ch, br, rl, le.Ssn)
 				}
 			}
-
-			log.Println(br.Responses)
-			br.Unlock()
 		}(m.Body)
 	}
 }
@@ -122,9 +126,16 @@ func publichResponse(ch *amqp.Channel, br *BankResponses, rl map[int]int, ssn in
 		} else {
 			log.Println("sendt", string(body))
 			Publish(ch, body, "", "ckkm-result-queue")
+			if _, ok := timers[ssn]; ok {
+				timers[ssn].Stop()
+				delete(timers, ssn)
+				log.Println("timer stopped")
+			}
 		}
 	}
+	log.Println("delete rl", ssn)
 	delete(rl, ssn)
+	log.Println("delete br", ssn)
 	delete(br.Responses, ssn)
 }
 
