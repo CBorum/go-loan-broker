@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cborum/go-loan-broker/bankutil"
@@ -53,8 +55,18 @@ func handleInMsg(body []byte, replyQueue amqp.Queue, ch *amqp.Channel) error {
 	if err != nil {
 		return err
 	}
+	ssn, err := strconv.Atoi(strings.Replace(lr.Ssn, "-", "", -1))
+	if err != nil {
+		return err
+	}
+	cphlr := &bankutil.CPHLoanRequest{
+		Ssn:          ssn,
+		LoanAmount:   lr.LoanAmount,
+		LoanDuration: lr.LoanDuration,
+		CreditScore:  lr.CreditScore,
+	}
 
-	jsonBody, err := json.Marshal(lr)
+	jsonBody, err := json.Marshal(cphlr)
 	if err != nil {
 		return err
 	}

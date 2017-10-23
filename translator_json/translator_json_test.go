@@ -51,3 +51,36 @@ func TestJsonInput(t *testing.T) {
 		t.FailNow()
 	}
 }
+func TestSsnString(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Ltime)
+	conn, err := amqp.Dial(bankutil.RabbitURL)
+	bankutil.FailOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	bankutil.FailOnError(err, "Failed to open a channel")
+	defer ch.Close()
+
+	s := []byte(`{"ssn":"160578-9787","creditScore":598,"loanAmount":10.0,"loanDuration":360}`)
+	ch.Publish(
+		"cphbusiness.bankJSON", // exchange
+		"",    // routing key
+		false, // mandatory
+		false, // immediate
+		amqp.Publishing{
+			ContentType: "text/json",
+			ReplyTo:     "ckkm-cph-json-out",
+			Body:        s,
+		})
+
+	msgs, err := ch.Consume("ckkm-cph-json-out", "", true, false, false, false, nil)
+	bankutil.FailOnError(err, "Consume fail")
+
+	select {
+	case m := <-msgs:
+		log.Println(string(m.Body))
+	case <-time.After(1 * time.Second):
+		log.Println("timeout")
+		t.FailNow()
+	}
+}

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	timers map[int]*time.Timer
+	timers map[string]*time.Timer
 )
 
 func main() {
@@ -29,10 +29,10 @@ func startAggregator(conn *amqp.Connection, quit chan bool) {
 	defer ch.Close()
 
 	br := &BankResponses{
-		Responses: make(map[int][]*LoanResponse),
+		Responses: make(map[string][]*LoanResponse),
 	}
-	rl := make(map[int]int)
-	timers = make(map[int]*time.Timer)
+	rl := make(map[string]int)
+	timers = make(map[string]*time.Timer)
 
 	_, err = StdQueueDeclare(ch, "ckkm-route-meta")
 	FailOnError(err, "Failed to declare queue")
@@ -48,7 +48,7 @@ func startAggregator(conn *amqp.Connection, quit chan bool) {
 	<-quit
 }
 
-func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
+func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[string]int) {
 	msgs, err := ch.Consume("ckkm-route-meta", "", true, false, false, false, nil)
 	FailOnError(err, "Comsume fail")
 	log.Println("Consume", "ckkm-route-meta")
@@ -60,11 +60,13 @@ func startRouteListener(ch *amqp.Channel, br *BankResponses, rl map[int]int) {
 			log.Println(err)
 		} else {
 			rl[ra.Ssn] = ra.Amount
+			//TODO
+			// time.AfterFunc(2200*time.Millisecond, publishResponseFunc(ch, br, rl, ra.Ssn))
 		}
 	}
 }
 
-func startQueueConsumer(ch *amqp.Channel, queueName string, br *BankResponses, rl map[int]int) {
+func startQueueConsumer(ch *amqp.Channel, queueName string, br *BankResponses, rl map[string]int) {
 	msgs, err := ch.Consume(queueName, "", true, false, false, false, nil)
 	FailOnError(err, "Consume fail")
 
@@ -102,13 +104,13 @@ func startQueueConsumer(ch *amqp.Channel, queueName string, br *BankResponses, r
 
 type responseFunc func()
 
-func publishResponseFunc(ch *amqp.Channel, br *BankResponses, rl map[int]int, ssn int) responseFunc {
+func publishResponseFunc(ch *amqp.Channel, br *BankResponses, rl map[string]int, ssn string) responseFunc {
 	return func() {
 		publichResponse(ch, br, rl, ssn)
 	}
 }
 
-func publichResponse(ch *amqp.Channel, br *BankResponses, rl map[int]int, ssn int) {
+func publichResponse(ch *amqp.Channel, br *BankResponses, rl map[string]int, ssn string) {
 	br.Lock()
 	defer br.Unlock()
 	if _, ok := br.Responses[ssn]; ok {
@@ -150,6 +152,6 @@ func parseLoanResponse(body []byte) (le *LoanResponse, err error) {
 }
 
 type resultAmount struct {
-	Ssn    int `json:"ssn"`
-	Amount int `json:"amount"`
+	Ssn    string `json:"ssn"`
+	Amount int    `json:"amount"`
 }

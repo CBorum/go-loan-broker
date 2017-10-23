@@ -22,7 +22,7 @@ func TestJsonInput(t *testing.T) {
 	defer ch.Close()
 
 	lr := bankutil.LoanRequest{
-		Ssn:          123412345,
+		Ssn:          "12345-1234",
 		CreditScore:  650,
 		LoanAmount:   4554.5,
 		LoanDuration: 123,
@@ -33,7 +33,7 @@ func TestJsonInput(t *testing.T) {
 		t.FailNow()
 	}
 	bankutil.Publish(ch, body, "", "ckkm-cph-json")
-	bankutil.Publish(ch, body, "", "ckkm-xml-in")
+	// bankutil.Publish(ch, body, "", "ckkm-xml-in")
 
 	q, err := bankutil.StdQueueDeclare(ch, "ckkm-result-queue")
 	bankutil.FailOnError(err, "Faield to declare queue")
@@ -65,7 +65,7 @@ func TestJsonInputWithRouteMeta(t *testing.T) {
 	defer ch.Close()
 
 	lr := bankutil.LoanRequest{
-		Ssn:          123412345,
+		Ssn:          "12345-1234",
 		CreditScore:  650,
 		LoanAmount:   4554.5,
 		LoanDuration: 123,
@@ -78,7 +78,7 @@ func TestJsonInputWithRouteMeta(t *testing.T) {
 	bankutil.Publish(ch, body, "", "ckkm-cph-json")
 	bankutil.Publish(ch, body, "", "ckkm-xml-in")
 
-	ra := &resultAmount{123412345, 2}
+	ra := &resultAmount{"123412345", 2}
 	body, err = json.Marshal(ra)
 	if err != nil {
 		t.FailNow()
@@ -106,6 +106,6 @@ func TestJsonInputWithRouteMeta(t *testing.T) {
 }
 
 type resultAmount struct {
-	Ssn    int `json:"ssn"`
-	Amount int `json:"amount"`
+	Ssn    string `json:"ssn"`
+	Amount int    `json:"amount"`
 }

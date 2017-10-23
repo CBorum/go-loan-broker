@@ -15,7 +15,7 @@ const (
 
 // LoanRequest ...
 type LoanRequest struct {
-	Ssn          int     `xml:"ssn" json:"ssn"`
+	Ssn          string  `xml:"ssn" json:"ssn"`
 	CreditScore  int     `xml:"creditScore" json:"creditScore"`
 	LoanAmount   float64 `xml:"loanAmount" json:"loanAmount"`
 	LoanDuration int     `xml:"loanDuration" json:"loanDuration"`
@@ -24,6 +24,21 @@ type LoanRequest struct {
 // LoanResponse ...
 type LoanResponse struct {
 	InterestRate float64 `xml:"interestRate" json:"interestRate"`
+	Ssn          string  `xml:"ssn" json:"ssn"`
+	Bank         string  `xml:"bank,omitempty" json:"bank,omitempty"`
+}
+
+// LoanRequest ...
+type CPHLoanRequest struct {
+	Ssn          int     `xml:"ssn" json:"ssn"`
+	CreditScore  int     `xml:"creditScore" json:"creditScore"`
+	LoanAmount   float64 `xml:"loanAmount" json:"loanAmount"`
+	LoanDuration int     `xml:"loanDuration" json:"loanDuration"`
+}
+
+// LoanResponse ...
+type CPHLoanResponse struct {
+	InterestRate float64 `xml:"interestRate" json:"interestRate"`
 	Ssn          int     `xml:"ssn" json:"ssn"`
 	Bank         string  `xml:"bank,omitempty" json:"bank,omitempty"`
 }
@@ -31,7 +46,7 @@ type LoanResponse struct {
 // BankResponses ...
 type BankResponses struct {
 	sync.RWMutex
-	Responses map[int][]*LoanResponse `json:"responses"`
+	Responses map[string][]*LoanResponse `json:"responses"`
 }
 
 // Publish ...

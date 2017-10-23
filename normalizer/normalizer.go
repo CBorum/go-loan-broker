@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"log"
+	"strconv"
 
 	"github.com/cborum/go-loan-broker/bankutil"
 	"github.com/streadway/amqp"
@@ -46,7 +47,7 @@ func startQueueConsumer(ch *amqp.Channel, queueName string, bankname string) {
 
 	for m := range msgs {
 		go func(body []byte) {
-			log.Println(string(body))
+			log.Println("from", queueName, string(body))
 			le, err := parseLoanResponse(body)
 			if err != nil {
 				log.Println(err)
@@ -74,10 +75,17 @@ func parseLoanResponse(body []byte) (le *bankutil.LoanResponse, err error) {
 	if err != nil {
 		err = xml.Unmarshal(body, le)
 		if err != nil {
-			return
+			cphle := &bankutil.CPHLoanResponse{}
+			err = json.Unmarshal(body, cphle)
+			if err != nil {
+				return
+			}
+			le.InterestRate = cphle.InterestRate
+			ssn := strconv.Itoa(cphle.Ssn)
+			le.Ssn = ssn[:5] + "-" + ssn[5:]
 		}
 	}
-	if le.InterestRate == 0 || le.Ssn == 0 {
+	if le.InterestRate == 0 || le.Ssn == "" {
 		err = errors.New("Malformed request")
 	}
 	return
